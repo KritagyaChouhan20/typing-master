@@ -7,14 +7,34 @@ const Content = ({ data }) => {
   const [typing, setTyping] = useState(true);
   const [userInput, setUserInput] = useState('');
   const [correctInput, setCorrectInput] = useState('');
-  const [timer, setTimer] = useState(30);
+  const [isTimerStarted, setIsTimerStarted] = useState(false); // Track if timer has started
   const textArea = useRef(null);
+  const [isOpen, setIsOpen] = useState(false); // To track dropdown state
+  const [selectedValue, setSelectedValue] = useState(30); // Default timer is 30 seconds
+  const [timer, setTimer] = useState(30); // Set timer initially to 30 seconds
 
+  // Toggle dropdown visibility
+  const toggleDropdown = () => {
+    setIsOpen(!isOpen);
+  };
+
+  // Handle option click and update the timer
+  const handleOptionClick = (value) => {
+    setSelectedValue(value); // Set selected value
+    setTimer(value); // Update timer to selected value
+    setIsOpen(false); // Close dropdown
+    setIsTimerStarted(false); // Ensure the timer doesn't start immediately
+
+        // AutoFocus when clicking on reset button
+        if (textArea.current) {
+          textArea.current.focus();
+        }
+  };
 
   // Function to randomly select new data from the array
   const fetchData = () => {
     let newString = '';
-    for (let i = 0; i <= 3; i++) {
+    for (let i = 0; i <= 5; i++) {
       const randomIndex = Math.floor(Math.random() * data.length);
       const randomSentence = data[randomIndex].toLowerCase().trim();
       newString += ' ' + randomSentence; // Build new data string
@@ -26,13 +46,14 @@ const Content = ({ data }) => {
 
   // Function to reset the timer and fetch new data
   const ButtonReset = () => {
-    setTimer(30); // Reset timer to 30 seconds
+    setTimer(selectedValue); // Reset timer to the selected value
     setTyping(true); // Enable typing again
     setUserInput(''); // Clear user input
     setCorrectInput(''); // Clear correct input
     fetchData(); // Refetch new random data
+    setIsTimerStarted(false); // Reset timer started flag
 
-    //AutoFocus when clicking on reset button
+    // AutoFocus when clicking on reset button
     if (textArea.current) {
       textArea.current.focus();
     }
@@ -41,17 +62,17 @@ const Content = ({ data }) => {
   // Timer logic with useEffect
   useEffect(() => {
     let interval;
-    if (timer > 0) {
+    if (isTimerStarted && timer > 0) {
       interval = setInterval(() => {
-        setTimer(prevTimer => prevTimer - 1); // Decrease timer every second
+        setTimer((prevTimer) => prevTimer - 1); // Decrease timer every second
       }, 1000);
-    } else {
+    } else if (timer === 0) {
       clearInterval(interval); // Stop the interval when the timer reaches 0
       setTyping(false); // Disable typing when time runs out
       calculateStats();
     }
     return () => clearInterval(interval); // Cleanup to avoid memory leaks
-  }, [timer]);
+  }, [timer, isTimerStarted]);
 
   // Initial data fetch when the component mounts
   useEffect(() => {
@@ -60,6 +81,13 @@ const Content = ({ data }) => {
 
   // Handle key press
   const handleKeyDown = (e) => {
+    if (!typing) return; // Prevent typing when time is up
+
+    // Start the timer on the first key press
+    if (!isTimerStarted) {
+      setIsTimerStarted(true); // Start the timer only on the first key press
+    }
+
     const userInputArray = userInput.split(''); // Split user input into array
     const dataStringArray = dataString.split(''); // Split data string into array
     const userInputChar = e.key; // Current key press
@@ -72,25 +100,25 @@ const Content = ({ data }) => {
     const isSpace = userInputChar === ' ';
 
     if (isBackspace) {
-      setUserInput(prevInput => prevInput.slice(0, -1)); // Handle backspace
-      setCorrectInput(prevCorrectInput => prevCorrectInput.slice(0, -1)); // Adjust correct input if needed
+      setUserInput((prevInput) => prevInput.slice(0, -1)); // Handle backspace
+      setCorrectInput((prevCorrectInput) => prevCorrectInput.slice(0, -1)); // Adjust correct input if needed
     } else if (isAlphabet || isNumber || isSpace) {
-      setUserInput(prevInput => prevInput + userInputChar); // Update user input
+      setUserInput((prevInput) => prevInput + userInputChar); // Update user input
 
       // Check if the input matches the corresponding data string character
       if (userInputChar === dataStringChar) {
-        setCorrectInput(prevCorrectInput => prevCorrectInput + userInputChar);
+        setCorrectInput((prevCorrectInput) => prevCorrectInput + userInputChar);
       }
     } else {
       e.preventDefault(); // Prevent invalid keys from being typed
     }
   };
 
-    // Function to calculate accuracy
+  // Function to calculate accuracy
   const calculateStats = () => {
     const totalCharactersTyped = userInput.length; // Total characters typed (raw)
     const correctCharactersTyped = correctInput.length; // Correct characters typed
-    const timeMinutes = 0.5; // 30-second timer (0.5 minutes)
+    const timeMinutes = selectedValue / 60; // Timer in minutes based on selected value
 
     // WPM for Correct Words (Speed)
     const speed = (correctCharactersTyped / 5) / timeMinutes;
@@ -154,6 +182,24 @@ const Content = ({ data }) => {
           <p>Raw Speed: {calculateStats().rawSpeed} WPM</p>
         </>
       )}
+
+      <div>
+        {/* Dropdown Button */}
+        <button onClick={toggleDropdown}>
+          {selectedValue ? `${selectedValue}` : 'Select Time'}
+        </button>
+
+        {/* Dropdown Menu */}
+        {isOpen && (
+          <ul>
+            {[15, 30, 45, 60].map((option) => (
+              <li key={option} onClick={() => handleOptionClick(option)}>
+                {option}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </>
   );
 };
